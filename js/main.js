@@ -152,46 +152,59 @@ document.addEventListener('DOMContentLoaded', () => {
         );
 
         try {
-            const voiceResponse = await fetch('https://dvscs.github.io/hoodtraptestq1/assets/voz1.mp3');
+            // Tente carregar o áudio diretamente do repositório
+            const voiceResponse = await fetch('https://raw.githubusercontent.com/DvSCS/hoodtraptestq1/main/voz1.mp3');
             if (!voiceResponse.ok) {
                 throw new Error(`HTTP error! status: ${voiceResponse.status}`);
             }
+            
+            // Log para debug
+            console.log('Voice response:', voiceResponse);
+            
             const voiceArrayBuffer = await voiceResponse.arrayBuffer();
-            const voiceBuffer = await offlineContext.decodeAudioData(voiceArrayBuffer);
+            console.log('Voice array buffer size:', voiceArrayBuffer.byteLength);
 
-            // Calcular o ponto médio da música
-            const midPoint = Math.floor(audioBuffer.length / 2);
+            // Tente decodificar o áudio com tratamento de erro
+            let voiceBuffer;
+            try {
+                voiceBuffer = await offlineContext.decodeAudioData(voiceArrayBuffer);
+            } catch (decodeError) {
+                console.error('Erro ao decodificar áudio:', decodeError);
+                // Continue o processamento sem a voz
+                voiceBuffer = null;
+            }
 
-            // Criar um novo buffer que vai conter a música original + voz + resto da música
+            // Crie o buffer final
             const finalBuffer = offlineContext.createBuffer(
                 audioBuffer.numberOfChannels,
-                audioBuffer.length + voiceBuffer.length,
+                audioBuffer.length,
                 audioBuffer.sampleRate
             );
 
-            // Copiar primeira metade da música
+            // Copie o áudio original
             for (let channel = 0; channel < audioBuffer.numberOfChannels; channel++) {
-                const firstHalf = finalBuffer.getChannelData(channel);
-                const originalData = audioBuffer.getChannelData(channel);
-                
-                // Copiar primeira metade
-                firstHalf.set(originalData.slice(0, midPoint), 0);
-                
-                // Adicionar a voz (mixada com a música)
-                const voiceData = voiceBuffer.getChannelData(channel % voiceBuffer.numberOfChannels);
-                for (let i = 0; i < voiceBuffer.length; i++) {
-                    const musicIndex = midPoint + i;
-                    if (musicIndex < audioBuffer.length) {
-                        // Mix voz com música (70% voz, 30% música)
-                        firstHalf[musicIndex] = voiceData[i] * 0.7 + originalData[musicIndex] * 0.3;
-                    }
-                }
-                
-                // Copiar segunda metade
-                firstHalf.set(originalData.slice(midPoint + voiceBuffer.length), midPoint + voiceBuffer.length);
+                const outputData = finalBuffer.getChannelData(channel);
+                const inputData = audioBuffer.getChannelData(channel);
+                outputData.set(inputData);
             }
 
-            // Continuar com o processamento normal dos efeitos
+            // Se tiver a voz, adicione-a
+            if (voiceBuffer) {
+                const midPoint = Math.floor(audioBuffer.length / 2);
+                for (let channel = 0; channel < audioBuffer.numberOfChannels; channel++) {
+                    const outputData = finalBuffer.getChannelData(channel);
+                    const voiceData = voiceBuffer.getChannelData(channel % voiceBuffer.numberOfChannels);
+                    
+                    for (let i = 0; i < voiceBuffer.length; i++) {
+                        const musicIndex = midPoint + i;
+                        if (musicIndex < audioBuffer.length) {
+                            outputData[musicIndex] = voiceData[i] * 0.7 + outputData[musicIndex] * 0.3;
+                        }
+                    }
+                }
+            }
+
+            // Continue com o processamento dos efeitos
             const source = offlineContext.createBufferSource();
             source.buffer = finalBuffer;
 
@@ -263,8 +276,8 @@ document.addEventListener('DOMContentLoaded', () => {
             // Render audio
             return await offlineContext.startRendering();
         } catch (error) {
-            console.error('Erro ao carregar ou processar a voz:', error);
-            throw error;
+            console.error('Erro detalhado:', error);
+            throw new Error('Falha no processamento do áudio: ' + error.message);
         }
     }
 
@@ -296,11 +309,11 @@ document.addEventListener('DOMContentLoaded', () => {
     // Convert button click handler
     convertBtn.addEventListener('click', async () => {
         if (!audioBuffer) {
-            alert('Please upload an audio file first');
+            alert('Por favor, faça upload de um arquivo de áudio primeiro');
             return;
         }
 
-        convertBtn.textContent = 'Processing...';
+        convertBtn.textContent = 'Processando...';
         convertBtn.disabled = true;
 
         try {
@@ -338,8 +351,23 @@ document.addEventListener('DOMContentLoaded', () => {
                 URL.revokeObjectURL(url);
             });
         } catch (error) {
-            console.error('Error processing audio:', error);
-            alert('Error processing audio. Please try again.');
+            console.error('Erro no processamento:', error);
+            alert('Erro no processamento do áudio. O arquivo será processado sem a voz.');
+            
+            // Tente processar sem a voz
+            try {
+                processedBuffer = audioBuffer;
+                const wav = audioBufferToWav(processedBuffer);
+                const blob = new Blob([wav], { type: 'audio/wav' });
+                const url = URL.createObjectURL(blob);
+                wavesurfer.load(url);
+                
+                downloadBtn.disabled = false;
+                shareBtn.disabled = false;
+            } catch (fallbackError) {
+                alert('Erro crítico no processamento. Por favor, tente novamente.');
+            }
+        } finally {
             convertBtn.textContent = 'Convert';
             convertBtn.disabled = false;
         }
