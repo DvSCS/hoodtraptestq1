@@ -40,8 +40,14 @@ document.addEventListener('DOMContentLoaded', () => {
         adGainNode = adContext.createGain();
         adGainNode.gain.value = 0.8;
 
-        // Use a URL do GitHub
-        const audioElement = new Audio('https://raw.githubusercontent.com/DvSCS/hoodtraptestq1/main/voz1.mp3');
+        // Use a URL do GitHub Pages
+        const audioElement = new Audio('https://dvscs.github.io/hoodtraptestq1/voz1.mp3');
+        
+        // Adicione tratamento de erro
+        audioElement.onerror = (e) => {
+            console.error('Erro ao carregar áudio:', e);
+        };
+
         audioElement.addEventListener('canplaythrough', () => {
             const source = adContext.createMediaElementSource(audioElement);
             source.connect(adGainNode);
@@ -146,8 +152,7 @@ document.addEventListener('DOMContentLoaded', () => {
         );
 
         try {
-            // Use a URL do seu repositório GitHub
-            const voiceResponse = await fetch('https://raw.githubusercontent.com/DvSCS/hoodtraptestq1/main/voz1.mp3');
+            const voiceResponse = await fetch('https://dvscs.github.io/hoodtraptestq1/assets/voz1.mp3');
             if (!voiceResponse.ok) {
                 throw new Error(`HTTP error! status: ${voiceResponse.status}`);
             }
