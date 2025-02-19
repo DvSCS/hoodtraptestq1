@@ -152,29 +152,7 @@ document.addEventListener('DOMContentLoaded', () => {
         );
 
         try {
-            // Tente carregar o áudio diretamente do repositório
-            const voiceResponse = await fetch('https://raw.githubusercontent.com/DvSCS/hoodtraptestq1/main/voz1.mp3');
-            if (!voiceResponse.ok) {
-                throw new Error(`HTTP error! status: ${voiceResponse.status}`);
-            }
-            
-            // Log para debug
-            console.log('Voice response:', voiceResponse);
-            
-            const voiceArrayBuffer = await voiceResponse.arrayBuffer();
-            console.log('Voice array buffer size:', voiceArrayBuffer.byteLength);
-
-            // Tente decodificar o áudio com tratamento de erro
-            let voiceBuffer;
-            try {
-                voiceBuffer = await offlineContext.decodeAudioData(voiceArrayBuffer);
-            } catch (decodeError) {
-                console.error('Erro ao decodificar áudio:', decodeError);
-                // Continue o processamento sem a voz
-                voiceBuffer = null;
-            }
-
-            // Crie o buffer final
+            // Crie o buffer final diretamente do audioBuffer original
             const finalBuffer = offlineContext.createBuffer(
                 audioBuffer.numberOfChannels,
                 audioBuffer.length,
@@ -186,22 +164,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 const outputData = finalBuffer.getChannelData(channel);
                 const inputData = audioBuffer.getChannelData(channel);
                 outputData.set(inputData);
-            }
-
-            // Se tiver a voz, adicione-a
-            if (voiceBuffer) {
-                const midPoint = Math.floor(audioBuffer.length / 2);
-                for (let channel = 0; channel < audioBuffer.numberOfChannels; channel++) {
-                    const outputData = finalBuffer.getChannelData(channel);
-                    const voiceData = voiceBuffer.getChannelData(channel % voiceBuffer.numberOfChannels);
-                    
-                    for (let i = 0; i < voiceBuffer.length; i++) {
-                        const musicIndex = midPoint + i;
-                        if (musicIndex < audioBuffer.length) {
-                            outputData[musicIndex] = voiceData[i] * 0.7 + outputData[musicIndex] * 0.3;
-                        }
-                    }
-                }
             }
 
             // Continue com o processamento dos efeitos
@@ -223,12 +185,12 @@ document.addEventListener('DOMContentLoaded', () => {
             // Vocal processing chain
             // 1. Distortion
             const distortion = offlineContext.createWaveShaper();
-            distortion.curve = createDistortionCurve(50); // Adjust distortion amount
+            distortion.curve = createDistortionCurve(50);
 
             // 2. Vocal EQ
             const vocalEQ = offlineContext.createBiquadFilter();
             vocalEQ.type = 'peaking';
-            vocalEQ.frequency.value = 2500; // Boost presence
+            vocalEQ.frequency.value = 2500;
             vocalEQ.Q.value = 1;
             vocalEQ.gain.value = 6;
 
@@ -242,7 +204,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
             // 4. Saturation
             const saturation = offlineContext.createWaveShaper();
-            saturation.curve = createSaturationCurve(2); // Adjust saturation amount
+            saturation.curve = createSaturationCurve(2);
 
             // Reverb
             const reverbConvolver = offlineContext.createConvolver();
@@ -252,7 +214,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
             // Final output gain
             const outputGain = offlineContext.createGain();
-            outputGain.gain.value = 0.9; // Prevent clipping
+            outputGain.gain.value = 0.9;
 
             // Connect nodes
             source.connect(bass);
