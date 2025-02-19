@@ -40,8 +40,8 @@ document.addEventListener('DOMContentLoaded', () => {
         adGainNode = adContext.createGain();
         adGainNode.gain.value = 0.8;
 
-        // Use um caminho relativo ao projeto
-        const audioElement = new Audio('./assets/voz1.mp3');
+        // Use a URL do GitHub
+        const audioElement = new Audio('https://raw.githubusercontent.com/DvSCS/hoodtraptestq1/main/voz1.mp3');
         audioElement.addEventListener('canplaythrough', () => {
             const source = adContext.createMediaElementSource(audioElement);
             source.connect(adGainNode);
@@ -146,8 +146,11 @@ document.addEventListener('DOMContentLoaded', () => {
         );
 
         try {
-            // Carregar o arquivo de voz
-            const voiceResponse = await fetch('./assets/voz1.mp3');
+            // Use a URL do seu repositório GitHub
+            const voiceResponse = await fetch('https://raw.githubusercontent.com/DvSCS/hoodtraptestq1/main/voz1.mp3');
+            if (!voiceResponse.ok) {
+                throw new Error(`HTTP error! status: ${voiceResponse.status}`);
+            }
             const voiceArrayBuffer = await voiceResponse.arrayBuffer();
             const voiceBuffer = await offlineContext.decodeAudioData(voiceArrayBuffer);
 
