@@ -152,120 +152,84 @@ document.addEventListener('DOMContentLoaded', () => {
         );
 
         try {
-            // Crie o buffer final diretamente do audioBuffer original
-            const finalBuffer = offlineContext.createBuffer(
-                audioBuffer.numberOfChannels,
-                audioBuffer.length,
-                audioBuffer.sampleRate
-            );
-
-            // Copie o áudio original
-            for (let channel = 0; channel < audioBuffer.numberOfChannels; channel++) {
-                const outputData = finalBuffer.getChannelData(channel);
-                const inputData = audioBuffer.getChannelData(channel);
-                outputData.set(inputData);
-            }
-
-            // Continue com o processamento dos efeitos
+            // Criar fonte de áudio
             const source = offlineContext.createBufferSource();
-            source.buffer = finalBuffer;
+            source.buffer = audioBuffer;  // Use o buffer original diretamente
 
             // Bass boost
-            const bass = offlineContext.createBiquadFilter();
-            bass.type = 'lowshelf';
-            bass.frequency.value = 100;
-            bass.gain.value = (bassBoostValue - 50) * 0.5;
+            const bassBoost = offlineContext.createBiquadFilter();
+            bassBoost.type = 'lowshelf';
+            bassBoost.frequency.value = 100;
+            bassBoost.gain.value = (bassBoostValue - 50) * 0.5;
 
-            // Hi-hat enhancement
+            // Hi-hat
             const hihat = offlineContext.createBiquadFilter();
             hihat.type = 'highshelf';
             hihat.frequency.value = 10000;
             hihat.gain.value = (hiHatValue - 50) * 0.5;
 
-            // Vocal processing chain
-            // 1. Distortion
-            const distortion = offlineContext.createWaveShaper();
-            distortion.curve = createDistortionCurve(50);
+            // Reverb
+            const reverbConvolver = offlineContext.createConvolver();
+            const reverbBuffer = createReverbBuffer(offlineContext);
+            reverbConvolver.buffer = reverbBuffer;
+            
+            const reverbGain = offlineContext.createGain();
+            reverbGain.gain.value = reverbValue / 100;
 
-            // 2. Vocal EQ
-            const vocalEQ = offlineContext.createBiquadFilter();
-            vocalEQ.type = 'peaking';
-            vocalEQ.frequency.value = 2500;
-            vocalEQ.Q.value = 1;
-            vocalEQ.gain.value = 6;
-
-            // 3. Compression
+            // Compressor para controlar dinâmica
             const compressor = offlineContext.createDynamicsCompressor();
             compressor.threshold.value = -24;
-            compressor.knee.value = 4;
+            compressor.knee.value = 30;
             compressor.ratio.value = 12;
             compressor.attack.value = 0.003;
             compressor.release.value = 0.25;
 
-            // 4. Saturation
-            const saturation = offlineContext.createWaveShaper();
-            saturation.curve = createSaturationCurve(2);
+            // Ganho final
+            const masterGain = offlineContext.createGain();
+            masterGain.gain.value = 0.9;
 
-            // Reverb
-            const reverbConvolver = offlineContext.createConvolver();
-            reverbConvolver.buffer = convolver.buffer;
-            const reverbGain = offlineContext.createGain();
-            reverbGain.gain.value = reverbValue / 100;
-
-            // Final output gain
-            const outputGain = offlineContext.createGain();
-            outputGain.gain.value = 0.9;
-
-            // Connect nodes
-            source.connect(bass);
-            bass.connect(hihat);
-            hihat.connect(distortion);
-            distortion.connect(vocalEQ);
-            vocalEQ.connect(compressor);
-            compressor.connect(saturation);
-            saturation.connect(outputGain);
+            // Conectar nós
+            source.connect(bassBoost);
+            bassBoost.connect(hihat);
+            hihat.connect(compressor);
             
-            // Parallel reverb processing
-            saturation.connect(reverbConvolver);
+            // Processamento paralelo do reverb
+            compressor.connect(reverbConvolver);
             reverbConvolver.connect(reverbGain);
-            reverbGain.connect(outputGain);
+            reverbGain.connect(masterGain);
             
-            outputGain.connect(offlineContext.destination);
+            // Conexão direta também
+            compressor.connect(masterGain);
+            
+            // Conexão final
+            masterGain.connect(offlineContext.destination);
 
-            // Start processing
-            source.start();
-
-            // Render audio
+            // Iniciar processamento
+            source.start(0);
+            
+            // Renderizar e retornar
             return await offlineContext.startRendering();
+
         } catch (error) {
             console.error('Erro detalhado:', error);
-            throw new Error('Falha no processamento do áudio: ' + error.message);
+            throw new Error('Falha no processamento do áudio');
         }
     }
 
-    // Helper function to create distortion curve
-    function createDistortionCurve(amount) {
-        const samples = 44100;
-        const curve = new Float32Array(samples);
-        const deg = Math.PI / 180;
-
-        for (let i = 0; i < samples; ++i) {
-            const x = (i * 2) / samples - 1;
-            curve[i] = (3 + amount) * x * 20 * deg / (Math.PI + amount * Math.abs(x));
-        }
-        return curve;
-    }
-
-    // Helper function to create saturation curve
-    function createSaturationCurve(amount) {
-        const samples = 44100;
-        const curve = new Float32Array(samples);
+    // Adicione esta função auxiliar para criar o buffer de reverb
+    function createReverbBuffer(context) {
+        const sampleRate = context.sampleRate;
+        const length = sampleRate * 2; // 2 segundos de reverb
+        const impulse = context.createBuffer(2, length, sampleRate);
         
-        for (let i = 0; i < samples; ++i) {
-            const x = (i * 2) / samples - 1;
-            curve[i] = Math.tanh(x * amount);
+        for (let channel = 0; channel < 2; channel++) {
+            const channelData = impulse.getChannelData(channel);
+            for (let i = 0; i < length; i++) {
+                channelData[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / length, 2);
+            }
         }
-        return curve;
+        
+        return impulse;
     }
 
     // Convert button click handler
@@ -281,54 +245,25 @@ document.addEventListener('DOMContentLoaded', () => {
         try {
             processedBuffer = await processAudio();
             
-            // Convert AudioBuffer to Blob for WaveSurfer
+            // Converter para WAV e criar URL
             const wav = audioBufferToWav(processedBuffer);
             const blob = new Blob([wav], { type: 'audio/wav' });
             const url = URL.createObjectURL(blob);
             
-            // Load the processed audio into WaveSurfer
+            // Carregar no WaveSurfer
             wavesurfer.load(url);
             
-            // Play ad when the processed audio finishes
-            wavesurfer.on('finish', () => {
-                if (adAudio) {
-                    // Ajuste o volume baseado na música processada
-                    const processedVolume = calculateAverageVolume(processedBuffer);
-                    const volumeRatio = 0.8 / processedVolume;
-                    adGainNode.gain.value = Math.min(Math.max(volumeRatio, 0.5), 1.0);
-                    
-                    // Reproduza o áudio
-                    adAudio.currentTime = 0;
-                    adAudio.play();
-                }
-            });
-
-            convertBtn.textContent = 'Convert';
-            convertBtn.disabled = false;
+            // Habilitar botões
             downloadBtn.disabled = false;
             shareBtn.disabled = false;
 
-            // Clean up the URL after loading
+            // Limpar URL após carregar
             wavesurfer.on('ready', () => {
                 URL.revokeObjectURL(url);
             });
         } catch (error) {
             console.error('Erro no processamento:', error);
-            alert('Erro no processamento do áudio. O arquivo será processado sem a voz.');
-            
-            // Tente processar sem a voz
-            try {
-                processedBuffer = audioBuffer;
-                const wav = audioBufferToWav(processedBuffer);
-                const blob = new Blob([wav], { type: 'audio/wav' });
-                const url = URL.createObjectURL(blob);
-                wavesurfer.load(url);
-                
-                downloadBtn.disabled = false;
-                shareBtn.disabled = false;
-            } catch (fallbackError) {
-                alert('Erro crítico no processamento. Por favor, tente novamente.');
-            }
+            alert('Erro no processamento. Tente novamente.');
         } finally {
             convertBtn.textContent = 'Convert';
             convertBtn.disabled = false;
