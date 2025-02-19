@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hood Trap Converter</title>
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <link rel="icon" type="image/x-icon" href="assets/favicon.ico">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1 class="neon-text">Hood Trap Converter</h1>
+            <p class="subtitle">Transform Your Track into Street Heat 🔥</p>
+        </header>
+
+        <main>
+            <div class="upload-section">
+                <div class="upload-box" id="dropZone">
+                    <i class="fas fa-cloud-upload-alt"></i>
+                    <p>Drag & Drop your track here</p>
+                    <span>or</span>
+                    <label for="fileInput" class="upload-btn">Choose File</label>
+                    <input type="file" id="fileInput" accept="audio/*" hidden>
+                </div>
+            </div>
+
+            <div class="controls-section hidden" id="controlsSection">
+                <div class="waveform" id="waveform"></div>
+                
+                <div class="sliders">
+                    <div class="slider-group">
+                        <label>Bass Boost</label>
+                        <input type="range" id="bassBoost" min="0" max="100" value="50">
+                    </div>
+                    <div class="slider-group">
+                        <label>Hi-Hat Intensity</label>
+                        <input type="range" id="hiHat" min="0" max="100" value="50">
+                    </div>
+                    <div class="slider-group">
+                        <label>Reverb</label>
+                        <input type="range" id="reverb" min="0" max="100" value="50">
+                    </div>
+                </div>
+
+                <div class="buttons">
+                    <button id="convertBtn" class="neon-btn">Convert</button>
+                    <button id="downloadBtn" class="neon-btn" disabled>Download</button>
+                    <button id="shareBtn" class="neon-btn" disabled>Share</button>
+                </div>
+            </div>
+        </main>
+    </div>
+    <script src="https://unpkg.com/wavesurfer.js"></script>
+    <script src="js/main.js"></script>
+</body>
+</html> 
